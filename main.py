@@ -54,12 +54,10 @@ def parse_arguments():
 
     parser.add_argument(
         "--output",
-        default="output"
+        default="output",
         help=(
             "Output directory")
     )
-
-    return parser.parse_args()
 
     parser.add_argument(
         "--show",
@@ -67,6 +65,12 @@ def parse_arguments():
         help=(
             "Display figures interactively."
         )
+
+    )
+
+    return parser.parse_args()
+
+
 
 if __name__ == "__main__":
 
