@@ -1,79 +1,56 @@
 import argparse
+from pathlib import Path
 
-def parse_arguments():
+import yaml
+
+
+def parse_arguments()-> argparse.Namespace:
 
     parser = argparse.ArgumentParser(
         description="Tremor Frequency Analysis"
     )
 
     parser.add_argument(
-        "--file",
+        "--config",
         required=True,
-        help="Path to HDF5 file"
-    )
-
-
-    parser.add_argument(
-        "--method",
-        default="both",
-        choices=["fft", "cwt", "both"],
-        help = (
-        "Spectral analysis method to use.\n"
-        "fft  = Fast Fourier Transform\n"
-        "cwt  = Continuous Wavelet Transform\n"
-        "both = FFT and CWT"
-        )
-    )
-
-    parser.add_argument(
-        "--freq-min",
-        type=float,
-        default=2.0
-    )
-
-    parser.add_argument(
-        "--freq-max",
-        type=float,
-        default=12.0
-    )
-
-    parser.add_argument(
-        "--axis",
-        default="mag",
-        choices=["x", "y", "z", "mag"],
+        type=Path,
         help=(
-            "Acceleration signal to analyze.\n"
-            "mag = vector magnitude "
-        )
-    )
-
-    parser.add_argument(
-        "--save",
-        action="store_true"
-    )
-
-    parser.add_argument(
-        "--output",
-        default="output",
-        help=(
-            "Output directory")
-    )
-
-    parser.add_argument(
-        "--show",
-        action="store_true",
-        help=(
-            "Display figures interactively."
-        )
-
+            "Path to YAML configuration file. "
+            "Example: configs/example_config.yaml"
+        ),
     )
 
     return parser.parse_args()
 
+def load_config(config_file: Path) -> dict:
+    """
+    Load YAML configuration.
 
+    Parameters
+    ----------
+    config_file : Path to YAML file.
 
-if __name__ == "__main__":
+    -------
+    dict : Parsed configuration.
+    """
+
+    with open(config_file, "r", encoding="utf-8") as file:
+        return yaml.safe_load(file)
+
+def main() -> None:
+    """
+    Application entry point.
+
+    Loads the YAML configuration and starts the analysis
+    pipeline.
+    """
 
     args = parse_arguments()
 
-    # TODO run implementation
+    config = load_config(args.config)
+    pass
+    #TODO: Run our analysis
+
+
+if __name__ == "__main__":
+    main()
