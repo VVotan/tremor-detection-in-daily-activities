@@ -1,13 +1,12 @@
 input:
   file: data/Haltetremor_aligned_dataset.h5
-  imu: wrist  # wrist, forearm, upperarm
+  imu: hand  # hand, forearm, upperarm
 
 signal:
   axis: mag # x, y, z, mag
-  sampling_rate: 100  # Hz
+  sampling_rate: 120  # Hz
 
 filter:
-  enabled: true
   lowcut: 2.0
   highcut: 12.0
   order: 2
@@ -17,8 +16,10 @@ analysis:
 
 cwt:
   min_frequency: 2
-  max_frequency: 4
-  num_frequencies: 100
+  max_frequency: 6
+
+fft:
+  nfft: 2 ** 10
 
 output:
   save_figures: true
