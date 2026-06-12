@@ -1,5 +1,5 @@
 input:
-  file: data/Haltetremor_aligned_dataset.h5
+  file: collected_datasets/Haltetremor_aligned_dataset.h5
   imu: hand  # hand, forearm, upperarm
 
 signal:
