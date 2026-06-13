@@ -4,3 +4,4 @@ pandas
 matplotlib
 pywavelets
 h5py
+PyYAML

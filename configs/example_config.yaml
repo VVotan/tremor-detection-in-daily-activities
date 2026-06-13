@@ -1,6 +1,6 @@
 input:
   file: collected_datasets/Haltetremor_aligned_dataset.h5
-  imu: hand  # hand, forearm, upperarm
+  imu: right_forearm  # left_hand, left_forearm, left_upperarm, right_hand, right_forearm, right_upperarm
 
 signal:
   axis: mag # x, y, z, mag
@@ -8,7 +8,7 @@ signal:
 
 filter:
   lowcut: 2.0
-  highcut: 12.0
+  highcut: 10.0
   order: 2
 
 analysis:
@@ -19,8 +19,8 @@ cwt:
   max_frequency: 6
 
 fft:
-  nfft: 2 ** 10
+  nfft: 1024
 
 output:
-  save_figures: true
+  save_figures: True
   directory: results
