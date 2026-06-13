@@ -707,7 +707,6 @@ class Visualizer:
             y_label=y_label,
             x_label=x_label,
             color=color,
-            save_path=title,
             show=show,
         )
 
@@ -747,7 +746,6 @@ class Visualizer:
                 color=color,
                 line_style=line_style,
                 log_scale=log_scale,
-                save_path=title,
                 show=show,
             )
         return cls.plot_spectrum(
@@ -763,7 +761,6 @@ class Visualizer:
             color=color,
             line_style=line_style,
             log_scale=log_scale,
-            save_path=title,
             show=show,
         )
 
@@ -796,7 +793,6 @@ class Visualizer:
             cmap=cmap,
             y_limits=frequency_limits,
             band=tremor_band,
-            save_path=title,
             show=show,
         )
 
