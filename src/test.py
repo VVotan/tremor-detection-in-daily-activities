@@ -1,9 +1,9 @@
-import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 import pywt
 from scipy.signal import welch
 from pathlib import Path
+from src.hdf5_utils import load_acceleration_axes, load_orientation_euler
 
 # extract data from hdf5 file
 # signal = h5py.File('../collected_datasets/Haltetremor_mit_frequenzaenderung_2_aligned_dataset.h5', 'r')    
@@ -12,32 +12,17 @@ base = Path(__file__).parent
 
 path = base.parent / "collected_datasets" / "Haltetremor_mit_frequenzaenderung_2_aligned_dataset.h5"
 
-signal = h5py.File(path, "r")
+acceleration = load_acceleration_axes(path, "right_forearm", missing_policy="raise")
+orientation = load_orientation_euler(path, "right_forearm", missing_policy="raise")
 
-# print(list(signal.keys()))
-# print(list(signal['modalities'].keys()))
-# print((signal['modalities']['movella__DOT_D422CD008603']['accel_x']))
-# movella__DOT_D422CD009F5B = Forearm_right
-# movella__DOT_D422CD008CC7 = Hand_right
-
-accel_x = signal['modalities']['movella__DOT_D422CD009F5B']['accel_y'][:]
-
-# test-prints
-# print(accel_x)
-# print(type(accel_x))
-print(accel_x.shape)
-
-# plot data     
-# plt.figure(figsize=(10, 6))
-# plt.plot(accel_x)
-
-# check if array has NaN values
-if np.isnan(accel_x).any():
-    # if so print warning and remove
-    print("Warning: NaN values found in the array.")
-    accel_x = accel_x[~np.isnan(accel_x)]
-else:
-    print("No NaN values found in the array.")
+# The logical bundle exposes the three spatial axes explicitly.
+accel_x = acceleration.components["accel_x"]
+accel_y = acceleration.components["accel_y"]
+accel_z = acceleration.components["accel_z"]
+print(accel_x.shape, accel_y.shape, accel_z.shape)
+print(acceleration.inspections["accel_y"])
+print(f"Acceleration bundle processable: {acceleration.is_processable}")
+print(f"Orientation bundle processable: {orientation.is_processable}")
 
 # sampling frequency of 60 Hz doesnt add up with global time -> ~108s instead of 216s
 fs = 60 # Hz, maybe 120 Hz?
@@ -45,14 +30,14 @@ dt = 1 / fs
 scales = np.arange(1, 128)
 
 # compute CWT
-coeffs, freqs = pywt.cwt(accel_x, scales, 'morl', sampling_period=dt)
+coeffs, freqs = pywt.cwt(accel_y, scales, 'morl', sampling_period=dt)
 
 # plot scalogram
 power = np.abs(coeffs)
 # plt.figure(figsize=(10, 6))
 # plt.imshow(
 #     power,
-#     extent=[0, len(accel_x)/fs, freqs.max(), freqs.min()],
+#     extent=[0, len(accel_y)/fs, freqs.max(), freqs.min()],
 #     aspect='auto'
 # )
 
@@ -60,14 +45,14 @@ power = np.abs(coeffs)
 # plt.ylabel("Frequenz [Hz]")
 # plt.colorbar(label="Amplitude")
 
-t = np.arange(len(accel_x)) * dt
+t = np.arange(len(accel_y)) * dt
 
 # subtract mean from signal to remove DC component
-accel_x = accel_x - np.mean(accel_x)
+accel_y = accel_y - np.mean(accel_y)
 
 # compute fft
-fft_result = np.fft.fft(accel_x)
-fft_freqs = np.fft.fftfreq(len(accel_x), d=dt)
+fft_result = np.fft.fft(accel_y)
+fft_freqs = np.fft.fftfreq(len(accel_y), d=dt)
 
 positive = fft_freqs >= 0
 
@@ -82,7 +67,7 @@ amplitude = np.abs(fft_result)
 # plt.ylabel("Amplitude")
 
 # compute PSD
-freqs_psd, psd = welch(accel_x, fs=fs)
+freqs_psd, psd = welch(accel_y, fs=fs)
 
 # plot PSD
 # plt.figure(figsize=(10, 6))
@@ -94,15 +79,15 @@ freqs_psd, psd = welch(accel_x, fs=fs)
 # delete all plots and put in one 2x2 subplot
 plt.figure(figsize=(12, 10))
 plt.subplot(2, 2, 1)
-plt.plot(t, accel_x)
-plt.title("Beschleunigungssignal (accel_x)")
+plt.plot(t, accel_y)
+plt.title("Beschleunigungssignal (accel_y)")
 plt.xlabel("Zeit [s]")
 plt.ylabel("Beschleunigung [m/s²]")
 
 plt.subplot(2, 2, 2)
 plt.imshow(
     power,
-    extent=[0, len(accel_x)/fs, freqs.max(), freqs.min()],
+    extent=[0, len(accel_y)/fs, freqs.max(), freqs.min()],
     aspect='auto'
 )
 plt.title("CWT-Skalogramm")
