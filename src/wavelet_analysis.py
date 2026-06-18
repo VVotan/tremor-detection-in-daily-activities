@@ -1,8 +1,9 @@
 """Wavelet-based time-frequency analysis for IMU tremor signals."""
 import numpy as np
 import pywt
-from scipy.signal import welch
-from src.visualization import VisualizationConfig, Visualizer
+from matplotlib import pyplot as plt
+
+from src.visualization import Visualizer
 
 
 def start_wavelet_analysis(data, min_frequency=2, max_frequency=6, sampling_rate=120):
@@ -32,7 +33,7 @@ def start_wavelet_analysis(data, min_frequency=2, max_frequency=6, sampling_rate
     dt = 1 / fs
     
     # compute scales for the desired frequency range
-    freqs = np.linspace(min_frequency, max_frequency, 30)
+    freqs = np.linspace(min_frequency, max_frequency, 128)
     scales = pywt.frequency2scale('morl', freqs / fs)
 
     # compute CWT
@@ -41,6 +42,17 @@ def start_wavelet_analysis(data, min_frequency=2, max_frequency=6, sampling_rate
         scales,
         'morl',
         sampling_period=dt,
+    )
+
+
+    Visualizer.plot_scalogram(
+        time=np.arange(len(data)) / sampling_rate,
+        frequencies=freqs,
+        scalogram=np.abs(coefs),
+        log_scale=True,
+        #tremor_band=(1, 10),
+        frequency_limits=(0, 10),
+        title="CWT-Scalogram"
     )
 
     return coefs, freqs

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import math
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any, ClassVar, Mapping, Sequence
@@ -150,6 +151,9 @@ class Visualizer:
     """Class-level plotting facade with shared configuration."""
 
     _config: ClassVar[VisualizationConfig] = VisualizationConfig()
+    _dashboard_active: ClassVar[bool] = False
+    _dashboard_title: ClassVar[str | None] = None
+    _dashboard_entries: ClassVar[list[dict[str, Any]]] = []
 
     @classmethod
     def configure(
@@ -174,6 +178,77 @@ class Visualizer:
 
 
     @classmethod
+    def begin_dashboard(cls, title: str | None = None) -> None:
+        cls._dashboard_active = True
+        cls._dashboard_title = title
+        cls._dashboard_entries.clear()
+
+    @classmethod
+    def end_dashboard(cls) -> None:
+        cls._dashboard_active = False
+        cls._dashboard_title = None
+        cls._dashboard_entries.clear()
+
+    @classmethod
+    def clear_dashboard(cls) -> None:
+        cls._dashboard_entries.clear()
+
+    @classmethod
+    def _register_dashboard_plot(cls, renderer: Any, kwargs: dict[str, Any]) -> None:
+        cls._dashboard_entries.append({"renderer": renderer, "kwargs": kwargs})
+
+    @classmethod
+    def _dashboard_or_continue(cls, renderer: Any, kwargs: dict[str, Any]) -> bool:
+        if cls._dashboard_active and kwargs.get("ax") is None:
+            payload = dict(kwargs)
+            payload.pop("cls", None)
+            cls._register_dashboard_plot(renderer, payload)
+            return True
+        return False
+
+    @classmethod
+    def show_dashboard(cls, *, columns: int = 2, show: bool = True):
+        if not cls._dashboard_entries:
+            raise ValueError("Dashboard is empty")
+
+        plot_count = len(cls._dashboard_entries)
+        rows = math.ceil(plot_count / columns)
+
+        with cls.style_context():
+            fig, axes = plt.subplots(
+                rows,
+                columns,
+                figsize=(
+                    columns * cls._config.figure_size[0],
+                    rows * cls._config.figure_size[1],
+                ),
+                constrained_layout=True,
+            )
+
+            axes = np.atleast_1d(axes).flatten()
+
+            for ax, entry in zip(axes, cls._dashboard_entries):
+                kwargs = dict(entry["kwargs"])
+                kwargs["ax"] = ax
+                kwargs["show"] = False
+                entry["renderer"](**kwargs)
+
+            for ax in axes[plot_count:]:
+                ax.set_visible(False)
+
+            if cls._dashboard_title:
+                fig.suptitle(
+                    cls._dashboard_title,
+                    fontsize=cls._config.title_size + 2,
+                )
+
+        if show:
+            plt.show()
+
+        return fig, axes
+
+
+    @classmethod
     def plot_signal(
         cls,
         signal: ArrayLike1D,
@@ -188,6 +263,13 @@ class Visualizer:
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
         """Plot a single time-domain signal."""
+
+        if cls._dashboard_or_continue(
+            cls.plot_signal,
+            locals(),
+        ):
+            return None, None
+
 
         samples = _as_1d_array(signal, name="signal")
         time = np.arange(samples.size) / float(sampling_rate)
@@ -228,6 +310,12 @@ class Visualizer:
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
         """Plot multiple channels on a shared time axis."""
+
+        if cls._dashboard_or_continue(
+            cls.plot_multichannel_signal,
+            locals(),
+        ):
+            return None, None
 
         multichannel = _as_2d_array(signals, name="signals")
         channel_count, sample_count = multichannel.shape
@@ -282,6 +370,12 @@ class Visualizer:
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
         """Plot a frequency spectrum."""
+
+        if cls._dashboard_or_continue(
+            cls.plot_spectrum,
+            locals(),
+        ):
+            return None, None
 
         frequency_values = _as_1d_array(frequencies, name="frequencies")
         power_values = _as_1d_array(power, name="power")
@@ -349,6 +443,12 @@ class Visualizer:
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
         """Plot a spectrum and mark its strongest peaks."""
+
+        if cls._dashboard_or_continue(
+            cls.plot_spectrum_peaks,
+            locals(),
+        ):
+            return None, None
 
         frequency_values = _as_1d_array(frequencies, name="frequencies")
         power_values = _as_1d_array(power, name="power")
@@ -434,6 +534,12 @@ class Visualizer:
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
         """Plot a generic 2D heatmap."""
+
+        if cls._dashboard_or_continue(
+            cls.plot_heatmap,
+            locals(),
+        ):
+            return None, None
 
         heatmap = _as_2d_array(values, name="values")
         if x_values is None:
@@ -552,7 +658,7 @@ class Visualizer:
         difference = reference_values - comparison_values
 
         with cls.style_context():
-            fig, axes = matplotlib.subplots(
+            fig, axes = plt.subplots(
                 2,
                 1,
                 sharex=True,
@@ -769,7 +875,7 @@ class Visualizer:
         cls,
         time: ArrayLike1D,
         frequencies: ArrayLike1D,
-        scalogram: ArrayLike1D,
+        scalogram: ArrayLike2D,
         *,
         ax: Axes | None = None,
         title: str | None = None,
@@ -779,10 +885,22 @@ class Visualizer:
         frequency_limits: tuple[float, float] | None = None,
         tremor_band: tuple[float, float] | None = None,
         cmap: str | None = None,
+        log_scale: bool = True,
         show: bool | None = None,
     ) -> tuple[Figure, Axes]:
-        return cls.plot_heatmap(
+        scalogram_array = _as_2d_array(
             scalogram,
+            name="scalogram",
+        )
+
+        if log_scale:
+            scalogram_array = 10.0 * np.log10(
+                scalogram_array + np.finfo(float).eps
+            )
+            colorbar_label = f"{colorbar_label} [dB]"
+
+        return cls.plot_heatmap(
+            scalogram_array,
             x_values=time,
             y_values=frequencies,
             ax=ax,
