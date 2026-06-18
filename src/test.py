@@ -40,15 +40,19 @@ else:
     print("No NaN values found in the array.")
 
 # sampling frequency of 60 Hz doesnt add up with global time -> ~108s instead of 216s
-fs = 60 # Hz, maybe 120 Hz?
+fs = 120 # Hz, maybe 120 Hz?
 dt = 1 / fs
-scales = np.arange(1, 128)
+freqs = np.linspace(2, 6, 30)
+# freqs = np.geomspace(2, 8, 30)
+scales = pywt.frequency2scale('morl', freqs/120)
 
 # compute CWT
-coeffs, freqs = pywt.cwt(accel_x, scales, 'morl', sampling_period=dt)
+coeffs, freqs = pywt.cwt(accel_x, scales, 'morl', sampling_period=dt, precision=12)
 
+print(coeffs)
 # plot scalogram
-power = np.abs(coeffs)
+power = np.abs(coeffs)**2 # squared - maybe dont?
+print(power)
 # plt.figure(figsize=(10, 6))
 # plt.imshow(
 #     power,
