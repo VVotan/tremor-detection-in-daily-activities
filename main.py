@@ -7,13 +7,15 @@ from datetime import datetime
 
 from pathlib import Path
 from typing import Any, Mapping
+
+import numpy as np
 import yaml
 from src.fft_analysis import start_fft_analysis
 from src.filter_utils import lowpass, highpass
 from src.hdf5_utils import load_signal
 from src.visualization import VisualizationConfig, Visualizer
 from src.wavelet_analysis import start_wavelet_analysis
-
+from scipy.signal import welch
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -69,6 +71,7 @@ class TremorAnalysisPipeline:
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
 
+
     def run(self):
         Visualizer.configure(
             VisualizationConfig(
@@ -78,38 +81,45 @@ class TremorAnalysisPipeline:
                 tremor_band=(self.lowcut, self.highcut),
             )
         )
-        raw_signal = load_signal(self.input_path, self.imu, self.axis)
+        Visualizer.begin_dashboard(
+            "Tremor Analysis with dataset:" + str(self.input_path.stem)
+        )
+
+
+        raw_signal = load_signal(self.input_path, self.imu, self.axis, missing_policy="trim_edges")
         print(f"Picking IMU: {self.imu}")
         print(f"Loaded signal from {raw_signal.source_path}")
 
         preprocessing = lowpass(raw_signal.values, self.sampling_rate, self.lowcut, self.filter_order)
         preprocessing = highpass(preprocessing.data, self.sampling_rate,self.highcut, self.filter_order)
+        preprocessed_data = preprocessing.data - np.mean(preprocessing.data)
+
         print(f"Applied band-pass filter: highpass={self.lowcut} Hz, lowpass={self.highcut} Hz")
 
-        Visualizer.compare_signals(
-            raw_signal.values,
-            preprocessing.data,
-            self.sampling_rate,
-            reference_label="Raw signal",
-            comparison_label="Filtered signal",
-            difference_label="Residual",
-            title="Raw vs filtered signal",
+        Visualizer.plot_signal(
+            preprocessed_data,
+            sampling_rate=self.sampling_rate,
+            title="Acceleration (Axis: " + str(self.axis) + ")",
+            x_label="time [s]",
+            y_label="acceleration [m/s]"
         )
 
         fft_result = None
-        wavelet = None
+        power = None
+        coefs = None
+        freqs = None
 
         method = _analysis_method(self.config)
         if method in {"fft", "both"}:
-            fft_result = start_fft_analysis(preprocessing.data, self.sampling_rate, self.nfft)
+            fft_freqs, power = start_fft_analysis(preprocessed_data, self.sampling_rate, self.nfft)
 
         if method in {"cwt", "both"}:
-            wavelet = start_wavelet_analysis(preprocessing.data, self.min_frequency, self.max_frequency,
+            coefs, freqs = start_wavelet_analysis(preprocessed_data, self.min_frequency, self.max_frequency,
                                              self.sampling_rate)
 
+        Visualizer.show_dashboard()
 
-
-        return raw_signal, preprocessing, fft_result, wavelet
+        return fft_result, power, coefs, freqs
 
 
 def main() -> None:
