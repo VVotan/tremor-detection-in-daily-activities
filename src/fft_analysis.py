@@ -17,12 +17,12 @@ def start_fft_analysis(data, sampling_rate, nfft):
 
     Visualizer.plot_spectrum(
         fft_freqs,
-        10*np.log10(power/np.max(power)), 
-        #10*np.log10(power/np.max(power)), #-> normalizing may be better for visualization (but not for the data samples I looked at)
+        power, 
+        #10*np.log10(power/np.max(power)),
         title="Power spectrum",
         x_limits=(0, 20),
         #y_limits=(0, 2500), #TODO
-        y_label="Power [dB]",
+        y_label="Power spectral density",
     )
 
     return fft_freqs, power
