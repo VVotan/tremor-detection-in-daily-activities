@@ -1,24 +1,28 @@
 """FFT-based frequency analysis for IMU tremor signals."""
 import numpy as np
-import scipy
+from scipy.signal import welch
 
 from src.visualization import VisualizationConfig, Visualizer
 
 
 def start_fft_analysis(data, sampling_rate, nfft):
-    fft_freqs, power = None, None
-
-
-
-
+    signal = np.asarray(data, dtype=float).squeeze()
+    if signal.ndim != 1:
+        raise ValueError(f"data must be one-dimensional, got shape {signal.shape}")
+    if signal.size < 2:
+        raise ValueError("data must contain at least two samples")
+    
+    nfft = min(int(nfft), signal.size)
+    fft_freqs, power = welch(signal, fs=sampling_rate, nperseg=nfft) # welch used because it is more robust
 
     Visualizer.plot_spectrum(
         fft_freqs,
-        power,
-        title="FFT-Spektrum",
+        10*np.log10(power/np.max(power)), 
+        #10*np.log10(power/np.max(power)), #-> normalizing may be better for visualization (but not for the data samples I looked at)
+        title="Power spectrum",
         x_limits=(0, 20),
-        y_limits=(0, 2500),
-        y_label="Amplitute",
+        #y_limits=(0, 2500), #TODO
+        y_label="Power [dB]",
     )
 
     return fft_freqs, power

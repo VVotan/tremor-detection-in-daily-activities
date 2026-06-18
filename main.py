@@ -90,9 +90,9 @@ class TremorAnalysisPipeline:
         print(f"Picking IMU: {self.imu}")
         print(f"Loaded signal from {raw_signal.source_path}")
 
-        preprocessing = lowpass(raw_signal.values, self.sampling_rate, self.lowcut, self.filter_order)
-        preprocessing = highpass(preprocessing.data, self.sampling_rate,self.highcut, self.filter_order)
-        preprocessed_data = preprocessing.data - np.mean(preprocessing.data)
+        preprocessing = highpass(raw_signal.values, self.sampling_rate, self.lowcut, self.filter_order)
+        preprocessing = lowpass(preprocessing, self.sampling_rate, self.highcut, self.filter_order)
+        preprocessed_data = preprocessing - np.mean(preprocessing)
 
         print(f"Applied band-pass filter: highpass={self.lowcut} Hz, lowpass={self.highcut} Hz")
 
@@ -112,7 +112,6 @@ class TremorAnalysisPipeline:
         method = _analysis_method(self.config)
         if method in {"fft", "both"}:
             fft_freqs, power = start_fft_analysis(preprocessed_data, self.sampling_rate, self.nfft)
-
         if method in {"cwt", "both"}:
             coefs, freqs = start_wavelet_analysis(preprocessed_data, self.min_frequency, self.max_frequency,
                                              self.sampling_rate)
