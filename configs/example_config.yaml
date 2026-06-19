@@ -17,6 +17,7 @@ analysis:
 cwt:
   min_frequency: 2
   max_frequency: 6
+  wavelet: morl
 
 fft:
   nfft: 1024

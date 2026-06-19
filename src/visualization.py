@@ -84,6 +84,23 @@ def _normalize_config_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+@dataclass(slots=True)
+class DashboardEntry:
+    renderer: Any
+    kwargs: dict[str, Any]
+
+    def render(
+        self,
+        *,
+        ax: Axes | None = None,
+        show: bool = False,
+    ):
+        payload = dict(self.kwargs)
+        payload["ax"] = ax
+        payload["show"] = show
+        return self.renderer(**payload)
+
+
 @dataclass(frozen=True, slots=True)
 class VisualizationConfig:
     """Immutable settings shared by all plots."""
@@ -153,7 +170,7 @@ class Visualizer:
     _config: ClassVar[VisualizationConfig] = VisualizationConfig()
     _dashboard_active: ClassVar[bool] = False
     _dashboard_title: ClassVar[str | None] = None
-    _dashboard_entries: ClassVar[list[dict[str, Any]]] = []
+    _dashboard_entries: ClassVar[list[DashboardEntry]] = []
 
     @classmethod
     def configure(
@@ -194,8 +211,11 @@ class Visualizer:
         cls._dashboard_entries.clear()
 
     @classmethod
-    def _register_dashboard_plot(cls, renderer: Any, kwargs: dict[str, Any]) -> None:
-        cls._dashboard_entries.append({"renderer": renderer, "kwargs": kwargs})
+    def _register_dashboard_plot( cls, renderer: Any, kwargs: dict[str, Any]) -> None:
+        cls._dashboard_entries.append(
+            DashboardEntry(renderer=renderer, kwargs=kwargs)
+        )
+
 
     @classmethod
     def _dashboard_or_continue(cls, renderer: Any, kwargs: dict[str, Any]) -> bool:
@@ -228,10 +248,7 @@ class Visualizer:
             axes = np.atleast_1d(axes).flatten()
 
             for ax, entry in zip(axes, cls._dashboard_entries):
-                kwargs = dict(entry["kwargs"])
-                kwargs["ax"] = ax
-                kwargs["show"] = False
-                entry["renderer"](**kwargs)
+                entry.render(ax=ax, show=False)
 
             for ax in axes[plot_count:]:
                 ax.set_visible(False)
@@ -751,7 +768,7 @@ class Visualizer:
         if config.tight_layout and not fig.get_constrained_layout():
             fig.tight_layout()
 
-        if save_path is not None and config.save_figures:
+        if save_path is not None and config.save_figures and owned_figure:
             cls.save_figure(fig, save_path)
 
         should_show = config.show_by_default if show is None else show
@@ -913,6 +930,24 @@ class Visualizer:
             band=tremor_band,
             show=show,
         )
+
+    @classmethod
+    def export_dashboard_plots(cls):
+        previous_state = cls._dashboard_active
+        cls._dashboard_active = False
+
+        try:
+            if not cls._dashboard_entries:
+                raise ValueError("Dashboard is empty")
+
+            for index, entry in enumerate(cls._dashboard_entries, start=1):
+                fig, _ = entry.render(ax=None, show=False)
+
+                plt.close(fig)
+
+        finally:
+            cls._dashboard_active = previous_state
+
 
 
 Visualization = Visualizer

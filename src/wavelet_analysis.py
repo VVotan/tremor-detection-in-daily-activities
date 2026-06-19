@@ -6,14 +6,16 @@ from matplotlib import pyplot as plt
 from src.visualization import Visualizer
 
 
-def start_wavelet_analysis(data, min_frequency=2, max_frequency=6, sampling_rate=120):
+def start_wavelet_analysis(data, wavelet, min_frequency=2, max_frequency=6, sampling_rate=120):
     """
     Perform CWT-based tremor analysis.
 
     Parameters
     ----------
     data : np.ndarray
-        IMU signal 
+        IMU signal
+    wavelet : str
+        Wavelet type
     min_frequency : float
         lower frequency bound (Hz)
     max_frequency : float
@@ -34,13 +36,13 @@ def start_wavelet_analysis(data, min_frequency=2, max_frequency=6, sampling_rate
     
     # compute scales for the desired frequency range
     freqs = np.linspace(min_frequency, max_frequency, 128)
-    scales = pywt.frequency2scale('morl', freqs / fs)
+    scales = pywt.frequency2scale(wavelet, freqs / fs)
 
     # compute CWT
     coefs, freqs = pywt.cwt(
         data,
         scales,
-        'morl',
+        wavelet,
         sampling_period=dt,
     )
 
