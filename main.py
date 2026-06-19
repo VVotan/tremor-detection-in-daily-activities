@@ -6,6 +6,7 @@ import argparse
 from datetime import datetime
 
 from pathlib import Path
+from pprint import pformat
 from typing import Any, Mapping
 
 import numpy as np
@@ -66,11 +67,34 @@ class TremorAnalysisPipeline:
         self.nfft = int(self.fft_config.get("nfft", 2**10))
         self.min_frequency = float(self.cwt_config.get("min_frequency", 2.0))
         self.max_frequency = float(self.cwt_config.get("max_frequency", 6.0))
-
+        self.wavelet = str(self.cwt_config.get("wavelet", "morl"))
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
 
+    def _to_report_lines(self) -> list[str]:
+        lines = []
+
+        for key, value in vars(self).items():
+            lines.append(f"{key}: {value}")
+
+        return lines
+
+    def export_metadata(self, results: [str]) -> Path:
+        """
+        Export the metadata next to the generated plots.
+        """
+        output_file = self.output_dir / "metadata.txt"
+
+        with output_file.open("w", encoding="utf-8") as f:
+            f.write("=== Used Config Parameters ===\n\n")
+            for line in self._to_report_lines():
+                f.write(f"{line}\n")
+            f.write("=== Results ===\n\n")
+            for line in results:
+                f.write(f"{line}\n")
+
+        return output_file
 
     def run(self):
         Visualizer.configure(
@@ -104,7 +128,7 @@ class TremorAnalysisPipeline:
             x_label="time [s]",
             y_label="acceleration [m/s]"
         )
-
+        results=[]
         fft_result = None
         power = None
         coefs = None
@@ -113,12 +137,17 @@ class TremorAnalysisPipeline:
         method = _analysis_method(self.config)
         if method in {"fft", "both"}:
             fft_freqs, power = start_fft_analysis(preprocessed_data, self.sampling_rate, self.nfft)
+            results.append(str(fft_freqs))
+            results.append(str(power))
         if method in {"cwt", "both"}:
-            coefs, freqs = start_wavelet_analysis(preprocessed_data, self.min_frequency, self.max_frequency,
+            coefs, freqs = start_wavelet_analysis(preprocessed_data, self.wavelet, self.min_frequency, self.max_frequency,
                                              self.sampling_rate)
+            results.append(str(coefs))
+            results.append(str(freqs))
 
         Visualizer.export_dashboard_plots()
         Visualizer.show_dashboard()
+        self.export_metadata(results)
 
         return fft_result, power, coefs, freqs
 
