@@ -81,6 +81,7 @@ class TremorAnalysisPipeline:
                 tremor_band=(self.lowcut, self.highcut),
             )
         )
+
         Visualizer.begin_dashboard(
             "Tremor Analysis with dataset:" + str(self.input_path.stem)
         )
@@ -116,6 +117,7 @@ class TremorAnalysisPipeline:
             coefs, freqs = start_wavelet_analysis(preprocessed_data, self.min_frequency, self.max_frequency,
                                              self.sampling_rate)
 
+        Visualizer.export_dashboard_plots()
         Visualizer.show_dashboard()
 
         return fft_result, power, coefs, freqs
