@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, sosfiltfilt, welch
+from scipy.ndimage import uniform_filter1d
 
 
 def highpass(data, rate, highpass, order=2):
@@ -50,6 +51,16 @@ def lowpass(data, rate, lowpass, order=2):
     sos = butter(order, lowpass, 'lowpass', fs=rate, output='sos') 
     filtered = sosfiltfilt(sos,data)
     return filtered
+
+def moving_average(
+    signal: np.ndarray,
+    window_size: int,
+) -> np.ndarray:
+    return uniform_filter1d(
+        np.asarray(signal, dtype=float),
+        size=window_size,
+        mode="reflect",
+    )
 
 
 # things that may be useful for later:

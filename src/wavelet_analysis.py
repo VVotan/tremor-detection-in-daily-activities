@@ -4,6 +4,7 @@ import pywt
 from matplotlib import pyplot as plt
 
 from src.visualization import Visualizer
+from src.filter_utils import moving_average
 
 
 def start_wavelet_analysis(data, wavelet, min_frequency=2, max_frequency=6, sampling_rate=120):
@@ -25,17 +26,19 @@ def start_wavelet_analysis(data, wavelet, min_frequency=2, max_frequency=6, samp
 
     Returns
     -------
-    coeffs : np.ndarray
-        CWT coefficients (freq x time)
+    power : np.ndarray
+        CWT coefficients (freq x time) - absolute value and squared
     frequencies : np.ndarray
         corresponding frequencies in Hz
+    f_mean_t : np.ndarray
+        mean frequency over time
     """
 
     fs = sampling_rate
     dt = 1 / fs
     
     # compute scales for the desired frequency range
-    freqs = np.linspace(min_frequency, max_frequency, 128)
+    freqs = np.linspace(min_frequency, max_frequency, 50)
     scales = pywt.frequency2scale(wavelet, freqs / fs)
 
     # compute CWT
@@ -44,17 +47,35 @@ def start_wavelet_analysis(data, wavelet, min_frequency=2, max_frequency=6, samp
         scales,
         wavelet,
         sampling_period=dt,
+        precision=12
     )
 
+    power = np.abs(coefs)**2
+    # calculate mean frequency over time
+
+    f_mean_t = (
+        np.sum(freqs[:, None] * power, axis=0)
+        / np.sum(power, axis=0)
+    )
+
+    # smooth via moving average ~ maybe delete later test for now -> look in literature if this is common practice
+    f_mean_ma = moving_average(f_mean_t, window_size=int(sampling_rate * 3))  
 
     Visualizer.plot_scalogram(
         time=np.arange(len(data)) / sampling_rate,
         frequencies=freqs,
-        scalogram=np.abs(coefs),
-        log_scale=True,
+        scalogram=power,
+        log_scale=False,
         #tremor_band=(1, 10),
-        frequency_limits=(0, 10),
+        #maybe set limits to min and max frequency?
+        frequency_limits=(min_frequency, max_frequency),
         title="CWT-Scalogram"
     )
 
-    return coefs, freqs
+    Visualizer.plot_time_series(
+        signal=f_mean_ma,
+        sampling_rate=sampling_rate,
+        title="Instantaneous Mean Frequency"
+    )
+
+    return power, freqs, f_mean_t

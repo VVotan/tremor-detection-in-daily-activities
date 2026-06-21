@@ -133,6 +133,7 @@ class TremorAnalysisPipeline:
         power = None
         coefs = None
         freqs = None
+        f_mean_t = None
 
         method = _analysis_method(self.config)
         if method in {"fft", "both"}:
@@ -140,10 +141,11 @@ class TremorAnalysisPipeline:
             results.append(str(fft_freqs))
             results.append(str(power))
         if method in {"cwt", "both"}:
-            coefs, freqs = start_wavelet_analysis(preprocessed_data, self.wavelet, self.min_frequency, self.max_frequency,
+            coefs, freqs, f_mean_t = start_wavelet_analysis(preprocessed_data, self.wavelet, self.min_frequency, self.max_frequency,
                                              self.sampling_rate)
             results.append(str(coefs))
             results.append(str(freqs))
+            results.append(str(f_mean_t))
 
         Visualizer.export_dashboard_plots()
         Visualizer.show_dashboard()

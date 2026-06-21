@@ -1,5 +1,5 @@
 input:
-  file: collected_datasets/Haltetremor_aligned_dataset.h5
+  file: collected_datasets/Haltetremor_mit_frequenzaenderung_2_aligned_dataset.h5
   imu: right_forearm  # left_hand, left_forearm, left_upperarm, right_hand, right_forearm, right_upperarm
 
 signal:
@@ -17,7 +17,7 @@ analysis:
 cwt:
   min_frequency: 2
   max_frequency: 6
-  wavelet: morl
+  wavelet: cmor1.5-3.0
 
 fft:
   nfft: 1024
