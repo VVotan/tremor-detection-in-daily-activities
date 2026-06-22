@@ -74,8 +74,11 @@ def start_wavelet_analysis(data, wavelet, min_frequency=2, max_frequency=6, samp
 
     Visualizer.plot_time_series(
         signal=f_mean_ma,
+        constant=np.mean(f_mean_ma),
+        constant_label="Overall Mean Frequency [Hz]",
         sampling_rate=sampling_rate,
-        title="Instantaneous Mean Frequency"
+        title="Instantaneous Mean Frequency",
+        y_label="Mean Frequency [Hz]"
     )
 
     return power, freqs, f_mean_t

@@ -271,6 +271,8 @@ class Visualizer:
         signal: ArrayLike1D,
         sampling_rate: float,
         *,
+        constant: float=None,
+        constant_label: str = None,
         ax: Axes | None = None,
         title: str | None = None,
         label: str | None = None,
@@ -300,6 +302,16 @@ class Visualizer:
                 linewidth=cls._config.line_width,
                 label=label,
             )
+            # Add constant in graph if handed as parameter
+            if constant is not None:
+                axis.axhline(
+                    y=constant,
+                    color=cls._config.peak_color,
+                    linestyle="--",
+                    linewidth=cls._config.line_width,
+                    label=constant_label,
+                )
+
             axis.set_xlabel(x_label)
             axis.set_ylabel(y_label)
             if title:
@@ -816,6 +828,8 @@ class Visualizer:
         ax: Axes | None = None,
         title: str | None = None,
         label: str | None = None,
+        constant: float = None,
+        constant_label: str = None,
         y_label: str = "Amplitude",
         x_label: str = "Time [s]",
         color: str | None = None,
@@ -827,6 +841,8 @@ class Visualizer:
             ax=ax,
             title=title,
             label=label,
+            constant=constant,
+            constant_label=constant_label,
             y_label=y_label,
             x_label=x_label,
             color=color,
