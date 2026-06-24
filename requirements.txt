@@ -5,3 +5,4 @@ matplotlib
 pywavelets
 h5py
 PyYAML
+pywt
