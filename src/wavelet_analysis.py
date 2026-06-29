@@ -59,8 +59,11 @@ def start_wavelet_analysis(
 
     Visualizer.plot_time_series(
         signal=f_mean_t,
+        constant=np.mean(f_mean_t),
+        constant_label="Overall Mean Frequency [Hz]",
         sampling_rate=sampling_rate,
-        title="Instantaneous Mean Frequency"
+        title="Instantaneous Mean Frequency",
+        y_label="Mean Frequency [Hz]"
     )
 
     time = np.arange(len(data)) / sampling_rate
