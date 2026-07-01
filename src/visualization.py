@@ -13,6 +13,7 @@ from typing import Any, ClassVar, Mapping, Sequence
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.animation import FFMpegWriter, FuncAnimation
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -99,6 +100,16 @@ class DashboardEntry:
         payload["ax"] = ax
         payload["show"] = show
         return self.renderer(**payload)
+
+
+@dataclass(frozen=True, slots=True)
+class TimeSeries:
+    """Label and samples for a single plotted time series."""
+
+    label: str
+    values: ArrayLike1D
+    color: str | None = None
+    line_style: str = "-"
 
 
 @dataclass(frozen=True, slots=True)
@@ -795,14 +806,20 @@ class Visualizer:
         return fig
 
     @classmethod
-    def resolve_save_path(cls, save_path: Path | str) -> Path:
-        """Resolve a figure path against the configured output directory."""
+    def resolve_save_path(
+        cls,
+        save_path: Path | str,
+        *,
+        default_suffix: str | None = None,
+    ) -> Path:
+        """Resolve a save path against the configured output directory."""
 
         path = Path(save_path)
         if not path.is_absolute() and cls._config.output_dir is not None:
             path = cls._config.output_dir / path
         if path.suffix == "":
-            path = path.with_suffix(f".{cls._config.default_format}")
+            suffix = default_suffix or f".{cls._config.default_format}"
+            path = path.with_suffix(suffix)
         path.parent.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -816,6 +833,42 @@ class Visualizer:
             dpi=cls._config.dpi,
             bbox_inches="tight",
             transparent=cls._config.transparent,
+        )
+        return path
+
+    @classmethod
+    def save_animation(
+        cls,
+        animation: FuncAnimation,
+        save_path: Path | str,
+        *,
+        fps: float | None = None,
+        dpi: int | None = None,
+        codec: str = "libx264",
+        extra_args: Sequence[str] | None = None,
+    ) -> Path:
+        """Persist an animation as a video file."""
+
+        path = cls.resolve_save_path(save_path, default_suffix=".mp4")
+        save_fps = float(fps) if fps is not None else 30.0
+
+        if path.suffix.lower() == ".mp4":
+            if not FFMpegWriter.isAvailable():
+                raise RuntimeError(
+                    "Saving MP4 animations requires ffmpeg. Install ffmpeg or choose another format."
+                )
+            writer = FFMpegWriter(
+                fps=save_fps,
+                codec=codec,
+                extra_args=list(extra_args) if extra_args is not None else ["-pix_fmt", "yuv420p"],
+            )
+        else:
+            writer = None
+
+        animation.save(
+            path,
+            writer=writer,
+            dpi=cls._config.dpi if dpi is None else dpi,
         )
         return path
 
@@ -848,6 +901,228 @@ class Visualizer:
             color=color,
             show=show,
         )
+
+    @classmethod
+    def animate_timeseries(
+        cls,
+        time: ArrayLike1D,
+        series: Sequence[TimeSeries],
+        *,
+        start_time: float,
+        end_time: float,
+        ax: Axes | None = None,
+        title: str | None = None,
+        x_label: str = "Time [s]",
+        y_label: str = "Acceleration [m/s^2]",
+        relative_time: bool = True,
+        time_window_seconds: float | None = None,
+        figsize: Sequence[float] | None = None,
+        interval_ms: float | None = None,
+        save_path: Path | str | None = None,
+        fps: float | None = None,
+        show: bool | None = None,
+    ) -> tuple[Figure, Axes, FuncAnimation]:
+        """Animate one or more time series over a selected window.
+
+        Use ``time_window_seconds`` to keep the visible x-axis short and
+        slide-friendly. When it is shorter than the selected data window,
+        the plot uses a rolling window so the animation stays compact.
+        """
+
+        time_values = _as_1d_array(time, name="time")
+        if not np.all(np.isfinite(time_values)):
+            raise ValueError("time must contain only finite values")
+        if np.any(np.diff(time_values) < 0):
+            raise ValueError("time must be sorted in non-decreasing order")
+        if not np.isfinite(start_time) or not np.isfinite(end_time):
+            raise ValueError("start_time and end_time must be finite numbers")
+        if start_time >= end_time:
+            raise ValueError("start_time must be smaller than end_time")
+        if time_window_seconds is not None:
+            time_window_seconds = float(time_window_seconds)
+            if not np.isfinite(time_window_seconds) or time_window_seconds <= 0:
+                raise ValueError("time_window_seconds must be a positive finite number")
+        figsize_tuple = _coerce_tuple(figsize, name="figsize") if figsize is not None else None
+
+        series_items = list(series)
+        if not series_items:
+            raise ValueError("series must not be empty")
+
+        sampled_series: list[np.ndarray] = []
+        labels: list[str] = []
+        colors: list[str | None] = []
+        line_styles: list[str] = []
+
+        for index, item in enumerate(series_items):
+            try:
+                label = item.label
+                values = item.values
+            except AttributeError as exc:  # pragma: no cover - defensive normalization
+                raise TypeError(
+                    "series items must provide 'label' and 'values' attributes"
+                ) from exc
+
+            samples = _as_1d_array(values, name=f"series[{index}].values")
+            if samples.size != time_values.size:
+                raise ValueError(
+                    "Each series must have the same number of samples as time"
+                )
+
+            sampled_series.append(samples)
+            labels.append(label)
+            colors.append(getattr(item, "color", None))
+            line_styles.append(getattr(item, "line_style", "-"))
+
+        window_start = max(float(start_time), float(time_values[0]))
+        window_end = min(float(end_time), float(time_values[-1]))
+        if window_start >= window_end:
+            raise ValueError("The requested time window does not overlap the data")
+
+        start_index = int(np.searchsorted(time_values, window_start, side="left"))
+        end_index = int(np.searchsorted(time_values, window_end, side="right"))
+        if start_index >= end_index:
+            raise ValueError("No samples fall within the requested time window")
+
+        window_time = time_values[start_index:end_index]
+        if relative_time:
+            display_time = window_time - window_time[0]
+            x_start = 0.0
+            x_end = float(display_time[-1])
+        else:
+            display_time = window_time
+            x_start = float(display_time[0])
+            x_end = float(display_time[-1])
+
+        selected_span = x_end - x_start
+        if selected_span <= 0:
+            def frame_xlim(_: float) -> tuple[float, float]:
+                return x_start - 0.5, x_end + 0.5
+        else:
+            if time_window_seconds is None:
+                x_window_span = selected_span
+                dynamic_x_limits = False
+            else:
+                x_window_span = min(float(time_window_seconds), selected_span)
+                dynamic_x_limits = x_window_span < selected_span
+
+            def frame_xlim(current_time: float) -> tuple[float, float]:
+                if not dynamic_x_limits:
+                    return x_start, x_end
+
+                x_right = min(max(current_time, x_start + x_window_span), x_end)
+                x_left = max(x_start, x_right - x_window_span)
+                return x_left, x_right
+
+        window_series = [samples[start_index:end_index] for samples in sampled_series]
+        flat_values = np.concatenate([samples.ravel() for samples in window_series])
+        finite_values = flat_values[np.isfinite(flat_values)]
+        if finite_values.size == 0:
+            raise ValueError(
+                "series must contain at least one finite value in the selected window"
+            )
+
+        y_min = float(np.min(finite_values))
+        y_max = float(np.max(finite_values))
+        y_span = y_max - y_min
+        y_padding = 0.05 * y_span if y_span > 0 else 1.0
+
+        with cls.style_context():
+            fig, axis, _ = cls._prepare_axis(ax=ax, figsize=figsize_tuple)
+
+            palette = [
+                cls._config.signal_color,
+                cls._config.filtered_color,
+                cls._config.band_color,
+                cls._config.peak_color,
+            ]
+            cycle = plt.rcParams.get("axes.prop_cycle")
+            if cycle is not None:
+                for color in cycle.by_key().get("color", []):
+                    if color not in palette:
+                        palette.append(color)
+
+            plotted_lines: list[Any] = []
+            for index, samples in enumerate(window_series):
+                color = colors[index] or palette[index % len(palette)]
+                line, = axis.plot(
+                    [],
+                    [],
+                    label=labels[index],
+                    color=color,
+                    linestyle=line_styles[index],
+                    linewidth=cls._config.line_width,
+                )
+                plotted_lines.append(line)
+
+            cursor_line = axis.axvline(
+                x=display_time[0],
+                color=cls._config.peak_color,
+                linestyle="--",
+                linewidth=1.2,
+                alpha=0.9,
+            )
+
+            axis.set_xlim(*frame_xlim(display_time[0]))
+            axis.set_ylim(y_min - y_padding, y_max + y_padding)
+            axis.set_xlabel(x_label)
+            axis.set_ylabel(y_label)
+            if title:
+                axis.set_title(title)
+            if cls._config.show_grid:
+                axis.grid(True, alpha=cls._config.grid_alpha)
+            if cls._config.show_legend:
+                axis.legend(loc="upper right")
+
+            def init_animation():
+                for line in plotted_lines:
+                    line.set_data([], [])
+                cursor_line.set_xdata([display_time[0], display_time[0]])
+                axis.set_xlim(*frame_xlim(display_time[0]))
+                return [*plotted_lines, cursor_line]
+
+            def update(frame_index: int):
+                current_time = display_time[frame_index]
+                for line, samples in zip(plotted_lines, window_series):
+                    line.set_data(
+                        display_time[: frame_index + 1],
+                        samples[: frame_index + 1],
+                    )
+                cursor_line.set_xdata([current_time, current_time])
+                axis.set_xlim(*frame_xlim(current_time))
+                return [*plotted_lines, cursor_line]
+
+            if interval_ms is None:
+                deltas = np.diff(window_time)
+                positive_deltas = deltas[deltas > 0]
+                sample_interval = (
+                    float(np.median(positive_deltas))
+                    if positive_deltas.size
+                    else 1.0
+                )
+                animation_interval = max(sample_interval * 1000.0, 1.0)
+            else:
+                animation_interval = float(interval_ms)
+
+            animation = FuncAnimation(
+                fig,
+                update,
+                frames=window_time.size,
+                init_func=init_animation,
+                interval=animation_interval,
+                blit=False,
+                repeat=False,
+            )
+
+            if save_path is not None:
+                save_fps = fps if fps is not None else max(1.0, 1000.0 / animation_interval)
+                cls.save_animation(
+                    animation,
+                    save_path,
+                    fps=save_fps,
+                )
+
+        cls._finalize_figure(fig, show=show, owned_figure=False)
+        return fig, axis, animation
 
 
     @classmethod
@@ -968,4 +1243,4 @@ class Visualizer:
 
 Visualization = Visualizer
 
-__all__ = ["Visualizer", "Visualization"]
+__all__ = ["Visualizer", "Visualization", "TimeSeries"]
