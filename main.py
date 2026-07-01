@@ -74,7 +74,7 @@ class TremorAnalysisPipeline:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
-
+        self.save_videos = bool(self.output_config.get("save_videos", False))
     def _to_report_lines(self) -> list[str]:
         lines = []
 
@@ -151,37 +151,37 @@ class TremorAnalysisPipeline:
             x_label="time [s]",
             y_label="acceleration [m/s^2]",
         )
-
-        _, _, animation = Visualizer.animate_timeseries(
-            time=time,
-            series=[
-                TimeSeries(
-                    label="x",
-                    values=raw_signal_x.values[:sample_count],
-                    color="#1f77b4",
-                ),
-                TimeSeries(
-                    label="y",
-                    values=raw_signal_y.values[:sample_count],
-                    color="#1f7700",
-                ),
-                TimeSeries(
-                    label="z",
-                    values=raw_signal_z.values[:sample_count],
-                    color="#1f7777",
-                ),
-            ],
-            start_time=20,
-            end_time=35,
-            save_path="raw_data_timeseries_animation.mp4",
-            ax=None,
-            title="Acceleration (Axes: x, y, z)",
-            x_label="time [s]",
-            y_label="acceleration [m/s^2]",
-            figsize=(6.5, 3.5),
-            relative_time=False,
-            show=False
-        )
+        if self.save_videos:
+            _, _, animation = Visualizer.animate_timeseries(
+                time=time,
+                series=[
+                    TimeSeries(
+                        label="x",
+                        values=raw_signal_x.values[:sample_count],
+                        color="#1f77b4",
+                    ),
+                    TimeSeries(
+                        label="y",
+                        values=raw_signal_y.values[:sample_count],
+                        color="#1f7700",
+                    ),
+                    TimeSeries(
+                        label="z",
+                        values=raw_signal_z.values[:sample_count],
+                        color="#1f7777",
+                    ),
+                ],
+                start_time=20,
+                end_time=35,
+                save_path="raw_data_timeseries_animation.mp4",
+                ax=None,
+                title="Acceleration (Axes: x, y, z)",
+                x_label="time [s]",
+                y_label="acceleration [m/s^2]",
+                figsize=(6.5, 3.5),
+                relative_time=False,
+                show=False
+            )
 
         results=[]
         fft_freqs = None

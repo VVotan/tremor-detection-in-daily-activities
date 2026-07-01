@@ -24,4 +24,5 @@ fft:
 
 output:
   save_figures: True
+  save_videos: False
   directory: results
