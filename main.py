@@ -11,10 +11,13 @@ from typing import Any, Mapping
 
 import numpy as np
 import yaml
+from matplotlib import pyplot as plt
+from matplotlib.animation import FuncAnimation
+
 from src.fft_analysis import start_fft_analysis
 from src.filter_utils import lowpass, highpass
 from src.hdf5_utils import load_signal
-from src.visualization import VisualizationConfig, Visualizer
+from src.visualization import TimeSeries, VisualizationConfig, Visualizer
 from src.wavelet_analysis import start_wavelet_analysis
 from scipy.signal import welch
 
@@ -71,7 +74,7 @@ class TremorAnalysisPipeline:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
-
+        self.save_videos = bool(self.output_config.get("save_videos", False))
     def _to_report_lines(self) -> list[str]:
         lines = []
 
@@ -79,6 +82,114 @@ class TremorAnalysisPipeline:
             lines.append(f"{key}: {value}")
 
         return lines
+
+    def plot_single_axis_raw_signal(self, raw_data):
+        data = raw_data.values - np.median(raw_data.values)
+
+        Visualizer.plot_signal(
+            data,
+            sampling_rate=self.sampling_rate,
+            title="Acceleration (Axis: " + str(self.axis) + ")",
+            x_label="time [s]",
+            y_label="acceleration [m/s]"
+        )
+
+        time = np.arange(data.size) / self.sampling_rate
+
+        if self.save_videos:
+            _, _, animation = Visualizer.animate_timeseries(
+                time=time,
+                series=[
+                    TimeSeries(
+                        values=data.values,
+                        color="#1f77b4",
+                    ),
+                ],
+                start_time=20,
+                end_time=35,
+                save_path="raw_data_timeseries_animation(Axes: " + str(self.axis) + ").mp4",
+                ax=None,
+                title="Acceleration (Axes: " + str(self.axis) + ")",
+                x_label="time [s]",
+                y_label="acceleration [m/s^2]",
+                figsize=(6.5, 3.5),
+                relative_time=False,
+                show=False
+            )
+
+
+    def plot_all_axes_of_raw_signal(self):
+
+        raw_signal = load_signal(self.input_path, self.imu, self.axis, missing_policy="trim_edges")
+        print(f"Picking IMU: {self.imu}")
+        print(f"Loaded signal from {raw_signal.source_path}")
+
+        preprocessing = highpass(raw_signal.values, self.sampling_rate, self.lowcut, self.filter_order)
+        preprocessing = lowpass(preprocessing, self.sampling_rate, self.highcut, self.filter_order)
+        preprocessed_data = preprocessing - np.mean(preprocessing)
+
+        print(f"Applied band-pass filter: highpass={self.lowcut} Hz, lowpass={self.highcut} Hz")
+
+        raw_signal_x = load_signal(self.input_path,self.imu, "x", missing_policy="trim_edges")
+        raw_signal_y = load_signal(self.input_path,self.imu, "y", missing_policy="trim_edges")
+        raw_signal_z = load_signal(self.input_path,self.imu, "z", missing_policy="trim_edges")
+
+        sample_count = min(
+            raw_signal_x.values.size,
+            raw_signal_y.values.size,
+            raw_signal_z.values.size,
+        )
+        multichannel_signal = np.vstack(
+            [
+                raw_signal_x.values[:sample_count],
+                raw_signal_y.values[:sample_count],
+                raw_signal_z.values[:sample_count],
+            ]
+        )
+        time = np.arange(sample_count) / self.sampling_rate
+
+        Visualizer.plot_multichannel_signal(
+            multichannel_signal,
+            sampling_rate=self.sampling_rate,
+            channel_names=["x", "y", "z"],
+            colors=["#1f77b4", "#1f7700", "#1f7777"],
+            title="Acceleration (Axes: x, y, z)",
+            x_label="time [s]",
+            y_label="acceleration [m/s^2]",
+        )
+
+        if self.save_videos:
+            _, _, animation = Visualizer.animate_timeseries(
+                time=time,
+                series=[
+                    TimeSeries(
+                        label="x",
+                        values=raw_signal_x.values[:sample_count],
+                        color="#1f77b4",
+                    ),
+                    TimeSeries(
+                        label="y",
+                        values=raw_signal_y.values[:sample_count],
+                        color="#1f7700",
+                    ),
+                    TimeSeries(
+                        label="z",
+                        values=raw_signal_z.values[:sample_count],
+                        color="#1f7777",
+                    ),
+                ],
+                start_time=20,
+                end_time=35,
+                save_path="raw_data_timeseries_animation.mp4",
+                ax=None,
+                title="Acceleration (Axes: x, y, z)",
+                x_label="time [s]",
+                y_label="acceleration [m/s^2]",
+                figsize=(6.5, 3.5),
+                relative_time=False,
+                show=False
+            )
+
 
     def export_metadata(self, results: [str]) -> Path:
         """
@@ -107,9 +218,8 @@ class TremorAnalysisPipeline:
         )
 
         Visualizer.begin_dashboard(
-            "Tremor Analysis with dataset:" + str(self.input_path.stem)
+            "Tremor Analysis with dataset: " + str(self.input_path.stem) + "\naxis: " + self.axis
         )
-
 
         raw_signal = load_signal(self.input_path, self.imu, self.axis, missing_policy="trim_edges")
         print(f"Picking IMU: {self.imu}")
@@ -121,15 +231,10 @@ class TremorAnalysisPipeline:
 
         print(f"Applied band-pass filter: highpass={self.lowcut} Hz, lowpass={self.highcut} Hz")
 
-        Visualizer.plot_signal(
-            preprocessed_data,
-            sampling_rate=self.sampling_rate,
-            title="Acceleration (Axis: " + str(self.axis) + ")",
-            x_label="time [s]",
-            y_label="acceleration [m/s]"
-        )
+        self.plot_single_axis_raw_signal(raw_signal)
+        #self.plot_all_axes_of_raw_signal()
         results=[]
-        fft_result = None
+        fft_freqs = None
         power = None
         coefs = None
         freqs = None
@@ -149,9 +254,10 @@ class TremorAnalysisPipeline:
 
         Visualizer.export_dashboard_plots()
         Visualizer.show_dashboard()
-        self.export_metadata(results)
+        if self.save_figures:
+            self.export_metadata(results)
 
-        return fft_result, power, coefs, freqs
+        return fft_freqs, power, coefs, freqs
 
 
 def main() -> None:
