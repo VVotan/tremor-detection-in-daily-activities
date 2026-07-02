@@ -83,36 +83,42 @@ class TremorAnalysisPipeline:
 
         return lines
 
-    def export_metadata(self, results: [str]) -> Path:
-        """
-        Export the metadata next to the generated plots.
-        """
-        output_file = self.output_dir / "metadata.txt"
+    def plot_single_axis_raw_signal(self, raw_data):
+        data = raw_data.values - np.median(raw_data.values)
 
-        with output_file.open("w", encoding="utf-8") as f:
-            f.write("=== Used Config Parameters ===\n\n")
-            for line in self._to_report_lines():
-                f.write(f"{line}\n")
-            f.write("=== Results ===\n\n")
-            for line in results:
-                f.write(f"{line}\n")
+        Visualizer.plot_signal(
+            data,
+            sampling_rate=self.sampling_rate,
+            title="Acceleration (Axis: " + str(self.axis) + ")",
+            x_label="time [s]",
+            y_label="acceleration [m/s]"
+        )
 
-        return output_file
+        time = np.arange(data.size) / self.sampling_rate
 
-    def run(self):
-        Visualizer.configure(
-            VisualizationConfig(
-                save_figures=self.save_figures,
-                output_dir=self.output_dir,
-                show_by_default=True,
-                tremor_band=(self.lowcut, self.highcut),
+        if self.save_videos:
+            _, _, animation = Visualizer.animate_timeseries(
+                time=time,
+                series=[
+                    TimeSeries(
+                        values=data.values,
+                        color="#1f77b4",
+                    ),
+                ],
+                start_time=20,
+                end_time=35,
+                save_path="raw_data_timeseries_animation(Axes: " + str(self.axis) + ").mp4",
+                ax=None,
+                title="Acceleration (Axes: " + str(self.axis) + ")",
+                x_label="time [s]",
+                y_label="acceleration [m/s^2]",
+                figsize=(6.5, 3.5),
+                relative_time=False,
+                show=False
             )
-        )
 
-        Visualizer.begin_dashboard(
-            "Tremor Analysis with dataset:" + str(self.input_path.stem)
-        )
 
+    def plot_all_axes_of_raw_signal(self):
 
         raw_signal = load_signal(self.input_path, self.imu, self.axis, missing_policy="trim_edges")
         print(f"Picking IMU: {self.imu}")
@@ -151,6 +157,7 @@ class TremorAnalysisPipeline:
             x_label="time [s]",
             y_label="acceleration [m/s^2]",
         )
+
         if self.save_videos:
             _, _, animation = Visualizer.animate_timeseries(
                 time=time,
@@ -183,6 +190,49 @@ class TremorAnalysisPipeline:
                 show=False
             )
 
+
+    def export_metadata(self, results: [str]) -> Path:
+        """
+        Export the metadata next to the generated plots.
+        """
+        output_file = self.output_dir / "metadata.txt"
+
+        with output_file.open("w", encoding="utf-8") as f:
+            f.write("=== Used Config Parameters ===\n\n")
+            for line in self._to_report_lines():
+                f.write(f"{line}\n")
+            f.write("=== Results ===\n\n")
+            for line in results:
+                f.write(f"{line}\n")
+
+        return output_file
+
+    def run(self):
+        Visualizer.configure(
+            VisualizationConfig(
+                save_figures=self.save_figures,
+                output_dir=self.output_dir,
+                show_by_default=True,
+                tremor_band=(self.lowcut, self.highcut),
+            )
+        )
+
+        Visualizer.begin_dashboard(
+            "Tremor Analysis with dataset: " + str(self.input_path.stem) + "\naxis: " + self.axis
+        )
+
+        raw_signal = load_signal(self.input_path, self.imu, self.axis, missing_policy="trim_edges")
+        print(f"Picking IMU: {self.imu}")
+        print(f"Loaded signal from {raw_signal.source_path}")
+
+        preprocessing = highpass(raw_signal.values, self.sampling_rate, self.lowcut, self.filter_order)
+        preprocessing = lowpass(preprocessing, self.sampling_rate, self.highcut, self.filter_order)
+        preprocessed_data = preprocessing - np.mean(preprocessing)
+
+        print(f"Applied band-pass filter: highpass={self.lowcut} Hz, lowpass={self.highcut} Hz")
+
+        self.plot_single_axis_raw_signal(raw_signal)
+        #self.plot_all_axes_of_raw_signal()
         results=[]
         fft_freqs = None
         power = None
