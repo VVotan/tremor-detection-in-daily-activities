@@ -282,6 +282,7 @@ class Visualizer:
         signal: ArrayLike1D,
         sampling_rate: float,
         *,
+        time: ArrayLike1D | None = None,
         constant: float=None,
         constant_label: str = None,
         ax: Axes | None = None,
@@ -302,12 +303,21 @@ class Visualizer:
 
 
         samples = _as_1d_array(signal, name="signal")
-        time = np.arange(samples.size) / float(sampling_rate)
+        if time is None:
+            time_values = np.arange(samples.size) / float(sampling_rate)
+        else:
+            time_values = _as_1d_array(time, name="time")
+            if time_values.size != samples.size:
+                raise ValueError("time and signal must have the same length")
+            if not np.all(np.isfinite(time_values)):
+                raise ValueError("time must contain only finite values")
+            if np.any(np.diff(time_values) < 0):
+                raise ValueError("time must be sorted in non-decreasing order")
 
         with cls.style_context():
             fig, axis, owned_figure = cls._prepare_axis(ax=ax)
             axis.plot(
-                time,
+                time_values,
                 samples,
                 color=color or cls._config.signal_color,
                 linewidth=cls._config.line_width,
@@ -878,6 +888,7 @@ class Visualizer:
         signal: ArrayLike1D,
         sampling_rate: float,
         *,
+        time: ArrayLike1D | None = None,
         ax: Axes | None = None,
         title: str | None = None,
         label: str | None = None,
@@ -891,6 +902,7 @@ class Visualizer:
         return cls.plot_signal(
             signal,
             sampling_rate,
+            time=time,
             ax=ax,
             title=title,
             label=label,

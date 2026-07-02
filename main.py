@@ -71,6 +71,8 @@ class TremorAnalysisPipeline:
         self.min_frequency = float(self.cwt_config.get("min_frequency", 2.0))
         self.max_frequency = float(self.cwt_config.get("max_frequency", 6.0))
         self.wavelet = str(self.cwt_config.get("wavelet", "morl"))
+        self.cwt_start_time = self.cwt_config.get("start_time")
+        self.cwt_end_time = self.cwt_config.get("end_time")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
@@ -246,8 +248,16 @@ class TremorAnalysisPipeline:
             results.append(str(fft_freqs))
             results.append(str(power))
         if method in {"cwt", "both"}:
-            coefs, freqs, f_mean_t, _ = start_wavelet_analysis(preprocessed_data, self.wavelet, self.min_frequency, self.max_frequency,
-                                             self.sampling_rate, output_dir=self.output_dir)
+            coefs, freqs, f_mean_t, _ = start_wavelet_analysis(
+                preprocessed_data,
+                self.wavelet,
+                self.min_frequency,
+                self.max_frequency,
+                self.sampling_rate,
+                output_dir=self.output_dir,
+                start_time=self.cwt_start_time,
+                end_time=self.cwt_end_time,
+            )
             results.append(str(coefs))
             results.append(str(freqs))
             results.append(str(f_mean_t))
