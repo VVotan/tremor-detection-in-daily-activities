@@ -1,6 +1,6 @@
 input:
-  file: collected_datasets/Haltetremor_mit_frequenzaenderung_2_aligned_dataset.h5
-  imu: right_forearm  # left_hand, left_forearm, left_upperarm, right_hand, right_forearm, right_upperarm
+  file: collected_datasets/Spirale_3Hz_hohe_amplitute_aligned_dataset.h5
+  imu: right_hand  # left_hand, left_forearm, left_upperarm, right_hand, right_forearm, right_upperarm
 
 signal:
   axis: mag # x, y, z, mag
@@ -18,13 +18,13 @@ cwt:
   min_frequency: 2
   max_frequency: 6
   wavelet: cmor1.5-3.0
-  start_time: 0
-  end_time: 20 # TODO: Change to a more neutral value!
+  #start_time: 0
+  #end_time: None # TODO: Change to a more neutral value!
 
 fft:
   nfft: 1024
 
 output:
   save_figures: True
-  save_videos: False
+  save_videos: True
   directory: results

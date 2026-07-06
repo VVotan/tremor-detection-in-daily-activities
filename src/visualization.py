@@ -306,7 +306,7 @@ class Visualizer:
         if time is None:
             time_values = np.arange(samples.size) / float(sampling_rate)
         else:
-            time_values = _as_1d_array(time, name="time")
+            time_values = _as_1d_array(time, name="Time")
             if time_values.size != samples.size:
                 raise ValueError("time and signal must have the same length")
             if not np.all(np.isfinite(time_values)):
@@ -575,7 +575,7 @@ class Visualizer:
         title: str | None = None,
         x_label: str = "X",
         y_label: str = "Y",
-        colorbar_label: str = "Magnitude",
+        colorbar_label: str = "Power",
         cmap: str | None = None,
         x_limits: tuple[float, float] | None = None,
         y_limits: tuple[float, float] | None = None,
@@ -941,7 +941,7 @@ class Visualizer:
         the plot uses a rolling window so the animation stays compact.
         """
 
-        time_values = _as_1d_array(time, name="time")
+        time_values = _as_1d_array(time, name="Time")
         if not np.all(np.isfinite(time_values)):
             raise ValueError("time must contain only finite values")
         if np.any(np.diff(time_values) < 0):
@@ -1201,7 +1201,7 @@ class Visualizer:
         title: str | None = None,
         x_label: str = "Time [s]",
         y_label: str = "Frequency [Hz]",
-        colorbar_label: str = "Magnitude",
+        colorbar_label: str = "Power",
         frequency_limits: tuple[float, float] | None = None,
         tremor_band: tuple[float, float] | None = None,
         cmap: str | None = None,

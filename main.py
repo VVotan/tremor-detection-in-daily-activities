@@ -92,8 +92,8 @@ class TremorAnalysisPipeline:
             data,
             sampling_rate=self.sampling_rate,
             title="Acceleration (Axis: " + str(self.axis) + ")",
-            x_label="time [s]",
-            y_label="acceleration [m/s]"
+            x_label="Time [s]",
+            y_label="Acceleration [m/s]"
         )
 
         time = np.arange(data.size) / self.sampling_rate
@@ -103,17 +103,17 @@ class TremorAnalysisPipeline:
                 time=time,
                 series=[
                     TimeSeries(
-                        values=data.values,
-                        color="#1f77b4",
+                        label="",
+                        values=data,
                     ),
                 ],
-                start_time=20,
-                end_time=35,
+                start_time=0,
+                end_time=time[-1],
                 save_path="raw_data_timeseries_animation(Axes: " + str(self.axis) + ").mp4",
                 ax=None,
                 title="Acceleration (Axes: " + str(self.axis) + ")",
-                x_label="time [s]",
-                y_label="acceleration [m/s^2]",
+                x_label="Time [s]",
+                y_label="Acceleration [m/s^2]",
                 figsize=(6.5, 3.5),
                 relative_time=False,
                 show=False
@@ -156,8 +156,8 @@ class TremorAnalysisPipeline:
             channel_names=["x", "y", "z"],
             colors=["#1f77b4", "#1f7700", "#1f7777"],
             title="Acceleration (Axes: x, y, z)",
-            x_label="time [s]",
-            y_label="acceleration [m/s^2]",
+            x_label="Time [s]",
+            y_label="Acceleration [m/s^2]",
         )
 
         if self.save_videos:
@@ -185,8 +185,8 @@ class TremorAnalysisPipeline:
                 save_path="raw_data_timeseries_animation.mp4",
                 ax=None,
                 title="Acceleration (Axes: x, y, z)",
-                x_label="time [s]",
-                y_label="acceleration [m/s^2]",
+                x_label="Time [s]",
+                y_label="Acceleration [m/s^2]",
                 figsize=(6.5, 3.5),
                 relative_time=False,
                 show=False
@@ -257,6 +257,7 @@ class TremorAnalysisPipeline:
                 output_dir=self.output_dir,
                 start_time=self.cwt_start_time,
                 end_time=self.cwt_end_time,
+                animation_duration_sec=20
             )
             results.append(str(coefs))
             results.append(str(freqs))
