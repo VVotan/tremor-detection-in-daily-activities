@@ -1,4 +1,9 @@
 # tremor-detection-in-daily-activities
+This project applies signal processing techniques to data of tremorous motion in order to extract information about the tremor, in particular its frequency. 
+
+The movement data was recorded with Inertial Measurement Units (IMUs) and includes simple movements and more complex real-world acitvites (e.g. drinking and pouring water into a glass) with emulated tremors of different frequency. For data analyis first a bandpass filter is applied to isolate tremor-relevant frequencies. Then a Fast Fourier Transform (FFT) for global frequency analysis and a Continuous Wavelet Transform (CWT) for time-frequency visualization is performed. Further a mean frequency estimation at each time point is calculated for robust tracking of the tremor frequency.
+
+This project was conducted as part of the seminar "Motion in Human and Machine" at the University of Tübingen.
 
 ## How to run the Analysis
 Before execution, you have to write a config file. 
