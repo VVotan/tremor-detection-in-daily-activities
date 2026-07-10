@@ -1,0 +1,30 @@
+input:
+  file: collected_datasets/Bewegungstremor_Nudeln_schöpfen_3Hz_aligned_dataset.h5
+  imu: right_forearm # left_hand, left_forearm, left_upperarm, right_hand, right_forearm, right_upperarm
+
+signal:
+  axis: z # x, y, z, mag
+  sampling_rate: 120  # Hz
+
+filter:
+  lowcut: 2.0
+  highcut: 10.0
+  order: 2
+
+analysis:
+  method: both     # fft, cwt, both
+
+cwt:
+  min_frequency: 2
+  max_frequency: 8
+  wavelet: cmor1.5-3.0
+  start_time: 14
+  end_time: 42
+
+fft:
+  nfft: 1024
+
+output:
+  save_figures: False
+  save_videos: False
+  directory: results

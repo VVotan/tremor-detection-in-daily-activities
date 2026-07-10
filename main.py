@@ -71,6 +71,8 @@ class TremorAnalysisPipeline:
         self.min_frequency = float(self.cwt_config.get("min_frequency", 2.0))
         self.max_frequency = float(self.cwt_config.get("max_frequency", 6.0))
         self.wavelet = str(self.cwt_config.get("wavelet", "morl"))
+        self.cwt_start_time = self.cwt_config.get("start_time")
+        self.cwt_end_time = self.cwt_config.get("end_time")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.output_dir = Path(f"{self.output_config.get('directory', 'results')}/{self.input_path.stem}_{timestamp}")
         self.save_figures = bool(self.output_config.get("save_figures", False))
@@ -90,8 +92,8 @@ class TremorAnalysisPipeline:
             data,
             sampling_rate=self.sampling_rate,
             title="Acceleration (Axis: " + str(self.axis) + ")",
-            x_label="time [s]",
-            y_label="acceleration [m/s]"
+            x_label="Time [s]",
+            y_label="Acceleration [m/s]"
         )
 
         time = np.arange(data.size) / self.sampling_rate
@@ -101,17 +103,17 @@ class TremorAnalysisPipeline:
                 time=time,
                 series=[
                     TimeSeries(
-                        values=data.values,
-                        color="#1f77b4",
+                        label="",
+                        values=data,
                     ),
                 ],
-                start_time=20,
-                end_time=35,
+                start_time=0,
+                end_time=time[-1],
                 save_path="raw_data_timeseries_animation(Axes: " + str(self.axis) + ").mp4",
                 ax=None,
                 title="Acceleration (Axes: " + str(self.axis) + ")",
-                x_label="time [s]",
-                y_label="acceleration [m/s^2]",
+                x_label="Time [s]",
+                y_label="Acceleration [m/s^2]",
                 figsize=(6.5, 3.5),
                 relative_time=False,
                 show=False
@@ -152,10 +154,10 @@ class TremorAnalysisPipeline:
             multichannel_signal,
             sampling_rate=self.sampling_rate,
             channel_names=["x", "y", "z"],
-            colors=["#1f77b4", "#1f7700", "#1f7777"],
+            colors=["#1f77b4", "#ff7f0e", "#2ca02c"],
             title="Acceleration (Axes: x, y, z)",
-            x_label="time [s]",
-            y_label="acceleration [m/s^2]",
+            x_label="Time [s]",
+            y_label="Acceleration [m/s^2]",
         )
 
         if self.save_videos:
@@ -170,21 +172,21 @@ class TremorAnalysisPipeline:
                     TimeSeries(
                         label="y",
                         values=raw_signal_y.values[:sample_count],
-                        color="#1f7700",
+                        color="#ff7f0e",
                     ),
                     TimeSeries(
                         label="z",
                         values=raw_signal_z.values[:sample_count],
-                        color="#1f7777",
+                        color="#2ca02c",
                     ),
                 ],
-                start_time=20,
-                end_time=35,
+                start_time=self.cwt_start_time,
+                end_time=self.cwt_end_time,
                 save_path="raw_data_timeseries_animation.mp4",
                 ax=None,
                 title="Acceleration (Axes: x, y, z)",
-                x_label="time [s]",
-                y_label="acceleration [m/s^2]",
+                x_label="Time [s]",
+                y_label="Acceleration [m/s^2]",
                 figsize=(6.5, 3.5),
                 relative_time=False,
                 show=False
@@ -246,8 +248,17 @@ class TremorAnalysisPipeline:
             results.append(str(fft_freqs))
             results.append(str(power))
         if method in {"cwt", "both"}:
-            coefs, freqs, f_mean_t, _ = start_wavelet_analysis(preprocessed_data, self.wavelet, self.min_frequency, self.max_frequency,
-                                             self.sampling_rate, output_dir=self.output_dir)
+            coefs, freqs, f_mean_t, _ = start_wavelet_analysis(
+                preprocessed_data,
+                self.wavelet,
+                self.min_frequency,
+                self.max_frequency,
+                self.sampling_rate,
+                output_dir=self.output_dir,
+                start_time=self.cwt_start_time,
+                end_time=self.cwt_end_time,
+                animation_duration_sec=20
+            )
             results.append(str(coefs))
             results.append(str(freqs))
             results.append(str(f_mean_t))
